@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Usage: accent.sh [orange|purple|blue]   (no argument = cycle to next)
+set -euo pipefail
+
+HYPR_FILE="$HOME/.config/hypr/accent.lua"
+WAYBAR_FILE="$HOME/.config/waybar/accent.css"
+STATE_FILE="$HOME/.local/state/accent"
+
+ORDER=(purple orange blue)
+declare -A COLORS=(
+  [purple]=cba6f7   # Catppuccin Mocha mauve
+  [orange]=ff8f1f
+  [blue]=1793d1     # Arch blue
+)
+
+mkdir -p "$(dirname "$HYPR_FILE")" "$(dirname "$WAYBAR_FILE")" "$(dirname "$STATE_FILE")"
+
+choice="${1:-}"
+
+# pick = color wheel; a 6-digit hex arg also works
+if [[ "$choice" == "pick" ]]; then
+  rgb="$(zenity --color-selection --title="Accent color")" || exit 0
+  nums=($(grep -oE '[0-9]+' <<<"$rgb"))
+  choice="$(printf '%02x%02x%02x' "${nums[0]}" "${nums[1]}" "${nums[2]}")"
+fi
+if [[ "$choice" =~ ^#?[0-9a-fA-F]{6}$ ]]; then
+  COLORS[custom]="${choice#\#}"
+  choice=custom
+fi
+
+if [[ -z "$choice" ]]; then
+  current="$(cat "$STATE_FILE" 2>/dev/null || echo purple)"
+  choice="${ORDER[0]}"
+  for i in "${!ORDER[@]}"; do
+    if [[ "${ORDER[$i]}" == "$current" ]]; then
+      choice="${ORDER[$(( (i + 1) % ${#ORDER[@]} ))]}"
+      break
+    fi
+  done
+fi
+
+if [[ -z "${COLORS[$choice]:-}" ]]; then
+  echo "Usage: $0 [purple|orange|blue]"
+  exit 1
+fi
+
+hex="${COLORS[$choice]}"
+
+# Persistent config files
+echo "return \"rgba(${hex}ff)\"" > "$HYPR_FILE"
+echo "@define-color accent #${hex};" > "$WAYBAR_FILE"
+echo "$choice" > "$STATE_FILE"
+
+# Apply live
+hyprctl reload >/dev/null
+pkill -SIGUSR2 waybar || true
+
+notify-send "Accent: $choice" "#${hex}" 2>/dev/null || true
