@@ -3,7 +3,7 @@ Lets you change the color of your hyprland borders and waybar using a color pick
 
 
 
-#Instructions
+# Instructions
 You will need to make your hyprland.lua look sorta like this:
 # hyprland.conf
    bind = SUPER CTRL, F9, exec, ~/Scripts/accent.sh pick
